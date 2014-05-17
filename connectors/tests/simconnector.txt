@@ -1,0 +1,35 @@
+A Simulator Connector is a conduit to a flight data model simulation.
+It feeds HIL with an aircraft's simulation state and also accepts control input
+for the aircraft.
+
+Simulator Connectors can be defined for any simulator that can output their simulation state and accept control input such as XPlane, FlightGear, JSBSim 
+
+XPlaneSimulator
+
+Let's first setup a fake XPlane server.
+
+>>> SIM_IP = "127.0.0.1"
+>>> SIM_PORT = 49001
+>>> CLIENT_IP = "127.0.0.1"
+>>> CLIENT_PORT = 49005
+>>> import socket
+>>> sim_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+>>> sim_server.bind((SIM_IP, SIM_PORT))
+
+We get simulation state data via our callback.
+>>> def callback(state):
+...  print repr(state)[31:]
+
+We're almost there, just need to create our connector and pump some data.
+>>> from xplaneconnector import XPlaneConnector
+>>> connector = XPlaneConnector(callback, SIM_IP, SIM_PORT)
+>>> connector.connect()
+
+>>> import os
+>>> xplane_packet_path = os.path.join(os.path.dirname(__file__), 'xplane.packet')
+>>> xplane_packet = open(xplane_packet_path, 'rb').read()
+>>> count = sim_server.sendto(xplane_packet, (CLIENT_IP, CLIENT_PORT))
+>>> import time
+>>> time.sleep(0.7)
+roll speed (rad/s): 0.003468, pitch speed (rad/s): -0.006832, yaw speed (rad/s): 0.001324, lat: 34.083492, lon: -118.036255, alt: 0, vx: 0, vy: 0, vz: 0, ias (m/s): 34, tas (m/s) 34, x accel (m/s/s): -0.028110, y accel (m/s/s): 2.413937, z accel (m/s/s): -9.769158 attitude: 0.005470i+0.028125j+0.974302k+0.223417w
+>>> connector.disconnect()
