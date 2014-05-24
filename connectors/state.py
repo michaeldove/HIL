@@ -6,7 +6,7 @@ class Quaternion:
         self.w = w
 
     def __repr__(self):
-        return "%fi+%fj+%fk+%fw" % (self.i, self.j, self.k, self.w)
+        return "%f+%fi+%fj+%fk" % (self.i, self.j, self.k, self.w)
 
 class HILStateQuaternion:
 

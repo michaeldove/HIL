@@ -8,3 +8,6 @@ class SimulatorConnector(object):
 
     def set_simulation_state(self, state):
         self.hil_callback(state)
+
+    def set_controls(self, pitch, roll, yaw, throttle):
+        pass

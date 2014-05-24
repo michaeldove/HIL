@@ -33,10 +33,10 @@ def read_packet():
 def write_packet(sc): 
     packet = read_packet()
     sock.sendto(packet,(DEST_IP, DEST_PORT))
-    sc.enter(0.5, 1, write_packet, (sc,))
+    sc.enter(0.02, 0.1, write_packet, (sc,))
     
 try:
-    s.enter(0, 1, write_packet, (s,))
+    s.enter(0, 0.1,write_packet, (s,))
     s.run()
 finally:
     f.close()

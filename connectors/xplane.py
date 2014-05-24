@@ -9,8 +9,8 @@ from twisted.internet.protocol import DatagramProtocol
 from Quaternion import Quat
 from state import HILStateQuaternion
 
-#UDP_IP = "192.168.1.165"
-#UDP_SENDTO_PORT=49001 # This is the port X-Plane is listening on for commands (such as the data select packet we send to tell it what data to send us).
+SIM_IP = "192.168.1.159"
+SIM_PORT=49000 
 
 SPEED_INDEX = 3
 MACH_VVI_GLOAD_INDEX = 4
@@ -18,6 +18,8 @@ PITCH_ROLL_HEADINGS_INDEX = 18
 LAT_LON_ATTITUDE_INDEX = 20
 ANGULAR_VELOCITIES_INDEX = 17
 LOC_VEL_DIST_INDEX = 21
+JOYSTICK_INDEX = 8
+THROTTLE_INDEX = 25
 
 START_INDEX_OFFSET = 5
 INDEX_LENGTH = 4
@@ -25,6 +27,11 @@ FLOAT_SIZE = 4
 DATA_ARRAY_LENGTH = 8
 DATA_LENGTH = FLOAT_SIZE * DATA_ARRAY_LENGTH
 CHUNK_LENGTH = INDEX_LENGTH + DATA_LENGTH
+
+UNSET = -999
+
+def validate_value(value, low, high):
+    return low <= value <= high
 
 class UnitConversion:
 
@@ -108,8 +115,8 @@ class XPlaneProtocol(DatagramProtocol):
     def parse_pitch_roll_headings(self, payload, state):
         parsed_payload = unpack_from('<ffffffff', payload) 
         pitch_deg, roll_deg, yaw_deg, yaw_mag_deg = parsed_payload[0:4]
-        q = Quat((pitch_deg, roll_deg, yaw_deg)).q
-        w, i, j, k = q
+        quat = Quat((yaw_deg, pitch_deg, roll_deg)).q
+        i, k, j, w = quat
         state.attitude.w = w
         state.attitude.i = i
         state.attitude.j = j
@@ -157,6 +164,32 @@ class XPlaneProtocol(DatagramProtocol):
                 parser_func(payload, state)
         return state
 
+    def pack(self, payload_values):
+        header = pack('<cccc', 'D','A','T','A')
+        payload = pack('<iffffffff', *payload_values)
+        data = '%s\0%s' % (header, payload)
+        return data
+
+
+    def set_controls(self, roll, pitch, yaw, throttle):
+        """Send the control deflections to xplane.
+        roll (right:1), pitch (down:1), yaw (right:1), throttle (full:1)"""
+
+        if not validate_value(roll, -1, 1): raise ValueError
+        if not validate_value(pitch, -1, 1): raise ValueError
+        if not validate_value(yaw, -1, 1): raise ValueError
+        if not validate_value(throttle, 0, 1): raise ValueError
+
+        joystick_values = [JOYSTICK_INDEX, -pitch, roll, yaw,
+                           UNSET, UNSET, UNSET, UNSET, UNSET]
+        data = self.pack(joystick_values)
+        self.transport.write(data, (SIM_IP, SIM_PORT))
+
+        throttle_values = [THROTTLE_INDEX, throttle, throttle, throttle,
+                           throttle, UNSET, UNSET, UNSET, UNSET]
+        data = self.pack(throttle_values)
+        self.transport.write(data, (SIM_IP, SIM_PORT))
+
     def display(self):
         """
         Use the curses library if you want to format and update the data nicely on the
@@ -171,8 +204,13 @@ if __name__ == "__main__":
     """
     print "Listening to X-Plane..."
 
+
     from twisted.internet import reactor
     UDP_PORT=49005 # I'm not sure if there's a default so you'll have to set it like this: http://dronedynamics.com/xplane_config.png
     xplane_connector = XPlaneProtocol(None)
     reactor.listenUDP(UDP_PORT, xplane_connector)
+    def move_control():
+        xplane_connector.set_controls(0, 0, 0, 0)
+
+    reactor.callWhenRunning(move_control)
     reactor.run()
