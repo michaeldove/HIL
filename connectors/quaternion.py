@@ -105,6 +105,7 @@ from math import sin, cos
 # http://www.sjbrown.co.uk/?article=quaternions
 
 def from_angles(x, y, z):
+    # x = phi, y = theta, z = psi
 
    cx = cos(x/2.0)
    sx = sin(x/2.0)
