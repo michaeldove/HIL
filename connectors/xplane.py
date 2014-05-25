@@ -7,6 +7,7 @@ import math
 import time
 from twisted.internet.protocol import DatagramProtocol
 from Quaternion import Quat
+from quaternion import from_angles
 from state import HILStateQuaternion
 
 SIM_IP = "192.168.1.159"
@@ -108,6 +109,9 @@ class XPlaneProtocol(DatagramProtocol):
         normal_accel = -UnitConversion.gravity_to_acceleration(normal_g)
         axial_accel = UnitConversion.gravity_to_acceleration(axial_g)
         side_accel = UnitConversion.gravity_to_acceleration(side_g)
+        #side_accel = 0.0
+        #axial_acces = 0.0
+        #normal_accel = 0.0
         state.xacc = side_accel
         state.yacc = axial_accel
         state.zacc = normal_accel
@@ -115,12 +119,18 @@ class XPlaneProtocol(DatagramProtocol):
     def parse_pitch_roll_headings(self, payload, state):
         parsed_payload = unpack_from('<ffffffff', payload) 
         pitch_deg, roll_deg, yaw_deg, yaw_mag_deg = parsed_payload[0:4]
-        quat = Quat((yaw_deg, pitch_deg, roll_deg)).q
-        i, k, j, w = quat
-        state.attitude.w = w
-        state.attitude.i = i
-        state.attitude.j = j
-        state.attitude.k = k
+        pitch_rad = math.radians(pitch_deg)
+        roll_rad = math.radians(roll_deg)
+        yaw_rad = math.radians(yaw_deg)
+        quat = from_angles(yaw_rad, pitch_rad, roll_rad)
+        #print quat
+        #quat = from_angles(pitch_deg, roll_deg, yaw_deg)
+        #quat2 = Quat((yaw_deg, pitch_deg, roll_deg)).q
+        #i, k, j, w = quat
+        state.attitude.w = quat.a
+        state.attitude.i = quat.x
+        state.attitude.j = quat.y
+        state.attitude.k = quat.z
 
     def parse_lat_lon_attitude(self, payload, state):
         parsed_payload = unpack_from('<ffffffff', payload) 
@@ -132,6 +142,7 @@ class XPlaneProtocol(DatagramProtocol):
     def parse_angular_velocities(self, payload, state):
         parsed_payload = unpack_from('<ffffffff', payload) 
         q, p, r = parsed_payload[0:3]
+        q, p, r = 0, 0, 0
         state.pitch_speed = q
         state.roll_speed = p
         state.yaw_speed = r
@@ -170,24 +181,27 @@ class XPlaneProtocol(DatagramProtocol):
         data = '%s\0%s' % (header, payload)
         return data
 
-
-    def set_controls(self, roll, pitch, yaw, throttle):
-        """Send the control deflections to xplane.
-        roll (right:1), pitch (down:1), yaw (right:1), throttle (full:1)"""
-
+    def encode_controls(self, roll, pitch, yaw, throttle):
         if not validate_value(roll, -1, 1): raise ValueError
         if not validate_value(pitch, -1, 1): raise ValueError
         if not validate_value(yaw, -1, 1): raise ValueError
         if not validate_value(throttle, 0, 1): raise ValueError
 
-        joystick_values = [JOYSTICK_INDEX, -pitch, roll, yaw,
+        joystick_values = [JOYSTICK_INDEX, pitch, roll, yaw,
                            UNSET, UNSET, UNSET, UNSET, UNSET]
-        data = self.pack(joystick_values)
-        self.transport.write(data, (SIM_IP, SIM_PORT))
+        data1 = self.pack(joystick_values)
+        #self.transport.write(data, (SIM_IP, SIM_PORT))
 
         throttle_values = [THROTTLE_INDEX, throttle, throttle, throttle,
                            throttle, UNSET, UNSET, UNSET, UNSET]
-        data = self.pack(throttle_values)
+        data2 = self.pack(throttle_values)
+        return [data1,data2]
+
+    def set_controls(self, roll, pitch, yaw, throttle):
+        """Send the control deflections to xplane.
+        roll (right:1), pitch (down:1), yaw (right:1), throttle (full:1)"""
+
+        data = self.encode_controls()
         self.transport.write(data, (SIM_IP, SIM_PORT))
 
     def display(self):

@@ -53,8 +53,8 @@ class SensorHIL(object):
         self.frame_count = 0
         self.last_report = 0
 
-        SIM_IP = "127.0.0.1"
-        SIM_PORT = 49005
+        SIM_IP = "10.0.0.1"
+        SIM_PORT = 49000
         self.sim_connector = XPlaneConnector(self.process_connector_state,
                                              SIM_IP, SIM_PORT)
 
@@ -289,7 +289,7 @@ class SensorHIL(object):
 
         #self.send_hil()
         #self.set_hil_and_arm()
-        self.sim_connector.connect()
+        self.sim_in = self.sim_connector.connect()
 
         #time.sleep(5)
 
@@ -336,6 +336,9 @@ class SensorHIL(object):
 #        self.go_autonomous()
         # resume simulation
         return time.time()
+
+    def process_sim(self):
+        self.sim_connector.handle_read(self.sim_in)
 
     def process_connector_state(self, state):
         quat = [state.attitude.i, state.attitude.j, state.attitude.k, state.attitude.w]
@@ -398,8 +401,8 @@ class SensorHIL(object):
 
 
         if mtype == 'HIL_CONTROLS':
-            print "HIL_CONTROLS"
-            print m.roll_ailerons, m.pitch_elevator, m.yaw_rudder, m.throttle
+            #print "HIL_CONTROLS"
+            #print m.roll_ailerons, m.pitch_elevator, m.yaw_rudder, m.throttle
             self.sim_connector.set_controls(m.roll_ailerons, m.pitch_elevator,
                                             m.yaw_rudder, m.throttle)
             #self.ac.update_controls(m)
@@ -435,7 +438,7 @@ class SensorHIL(object):
 
     def update(self):
         # watch files
-        rin = [self.gcs.fd]
+        rin = [self.gcs.fd, self.sim_in]
 
         # receive messages on serial port
         while self.master.port.inWaiting() > 0:
@@ -450,6 +453,9 @@ class SensorHIL(object):
         # if new gcs input, process it
         if self.gcs.fd in rin:
             self.process_gcs()
+
+        if self.sim_in in rin:
+            self.process_sim()
 
         # if new jsbsim input, process it
 #        if self.jsb_in.fileno() in rin:

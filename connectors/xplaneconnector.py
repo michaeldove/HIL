@@ -1,6 +1,6 @@
+import socket, select
 from simconnector import SimulatorConnector
 from twisted.internet import reactor
-from threading import Thread
 from xplane import XPlaneProtocol
 
 class XPlaneConnector(SimulatorConnector):
@@ -11,22 +11,22 @@ class XPlaneConnector(SimulatorConnector):
         self.sim_port = sim_port
         self.bind_port = bind_port
         self.protocol = None
-        self.thread = None
 
     def set_controls(self, roll, pitch, yaw, throttle):
-        print "set controls"
-        reactor.callFromThread(self.protocol.set_controls, roll, -pitch, yaw, throttle)
+        packets = self.protocol.encode_controls(roll, pitch, yaw, throttle)
+        for packet in packets:
+            self.sock.sendto(packet, (self.sim_ip, self.sim_port))
 
     def connect(self):
-        print "Connect"
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setblocking(0)
+        self.sock.bind(('', self.bind_port))
         self.protocol = XPlaneProtocol(self.set_simulation_state)
-        reactor.listenUDP(self.bind_port, self.protocol)
-        self.thread = Thread(target=reactor.run,
-                             kwargs={'installSignalHandlers' : False})
-        self.thread.start()
+        return self.sock
+
+    def handle_read(self, sock):
+        data = sock.recv(1024)
+        self.protocol.datagramReceived(data, (None, None))
 
     def disconnect(self):
-        if self.thread:
-            reactor.callFromThread(reactor.stop)
-            self.thread.join(10)
-            self.protocol = None
+        pass
