@@ -173,10 +173,11 @@ class SensorHIL(object):
         self.master.mav.command_long_send(1,
                             0,
                             mavlink.MAV_CMD_DO_SET_MODE, 0,
-                            mavlink.MAV_MODE_FLAG_HIL_ENABLED|
-                            mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED|
-                            mavlink.MAV_MODE_FLAG_SAFETY_ARMED |
-                            mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+                            225,
+                            #mavlink.MAV_MODE_FLAG_HIL_ENABLED|
+                            #mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED|
+                            #mavlink.MAV_MODE_FLAG_SAFETY_ARMED |
+                            #mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
                             1, 0, 0, 0, 0, 0)
 
         hil_enabled = self.wait_for_mode_flag(mavlink.MAV_MODE_FLAG_HIL_ENABLED)
